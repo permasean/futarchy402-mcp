@@ -28,7 +28,8 @@ describe('MCP Server', () => {
 
       expect(mcpTool.inputSchema.required).toContain('poll_id');
       expect(mcpTool.inputSchema.required).toContain('side');
-      expect(mcpTool.inputSchema.required).toContain('wallet_private_key');
+      // wallet_private_key is now optional (can use WALLET_PRIVATE_KEY env var)
+      expect(mcpTool.inputSchema.required).not.toContain('wallet_private_key');
     });
   });
 
