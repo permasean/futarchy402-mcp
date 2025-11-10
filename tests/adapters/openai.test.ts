@@ -46,7 +46,8 @@ describe('OpenAI Adapter', () => {
 
       expect(openaiTool.function.parameters.required).toContain('poll_id');
       expect(openaiTool.function.parameters.required).toContain('side');
-      expect(openaiTool.function.parameters.required).toContain('wallet_private_key');
+      // wallet_private_key is now optional (can use WALLET_PRIVATE_KEY env var)
+      expect(openaiTool.function.parameters.required).not.toContain('wallet_private_key');
     });
   });
 

@@ -169,14 +169,18 @@ export const handleVote: ToolHandler = async (context, args) => {
   if (side !== 'yes' && side !== 'no') {
     throw new Error('side must be "yes" or "no"');
   }
-  if (!wallet_private_key) {
-    throw new Error('wallet_private_key is required');
+
+  // Allow wallet_private_key from args or environment variable
+  const privateKey = wallet_private_key || process.env.WALLET_PRIVATE_KEY;
+
+  if (!privateKey) {
+    throw new Error('wallet_private_key is required (provide as parameter or set WALLET_PRIVATE_KEY environment variable)');
   }
 
   const result = await executeVote({
     pollId: poll_id,
     side,
-    walletPrivateKey: wallet_private_key,
+    walletPrivateKey: privateKey,
     slippage: slippage ?? 0.05,
     apiBaseUrl: context.client.getBaseUrl(),
     network: context.client.getNetwork(),

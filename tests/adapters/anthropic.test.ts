@@ -39,7 +39,8 @@ describe('Anthropic/Claude Adapter', () => {
 
       expect(claudeTool.input_schema.required).toContain('poll_id');
       expect(claudeTool.input_schema.required).toContain('side');
-      expect(claudeTool.input_schema.required).toContain('wallet_private_key');
+      // wallet_private_key is now optional (can use WALLET_PRIVATE_KEY env var)
+      expect(claudeTool.input_schema.required).not.toContain('wallet_private_key');
     });
 
     it('should preserve descriptions', () => {

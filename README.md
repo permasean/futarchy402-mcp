@@ -74,20 +74,44 @@ const response = await anthropic.messages.create({
 // Handle tool uses in response.content
 ```
 
-### MCP Server
+### MCP Server (Claude Desktop)
 
-Add to your MCP configuration:
+**Location:** `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 
+**Basic Configuration (Mainnet):**
 ```json
 {
   "mcpServers": {
     "futarchy402": {
       "command": "node",
-      "args": ["node_modules/@futarchy402/mcp/dist/adapters/mcp/server.js"]
+      "args": ["/absolute/path/to/node_modules/@futarchy402/mcp/dist/adapters/mcp/server.js"],
+      "env": {
+        "FUTARCHY_NETWORK": "mainnet"
+      }
     }
   }
 }
 ```
+
+**Devnet Configuration with Wallet:**
+```json
+{
+  "mcpServers": {
+    "futarchy402": {
+      "command": "node",
+      "args": ["/absolute/path/to/node_modules/@futarchy402/mcp/dist/adapters/mcp/server.js"],
+      "env": {
+        "FUTARCHY_NETWORK": "devnet",
+        "WALLET_PRIVATE_KEY": "your-devnet-wallet-base58-key"
+      }
+    }
+  }
+}
+```
+
+**⚠️ Security Warning:** Only use `WALLET_PRIVATE_KEY` in config with devnet keys. For mainnet, let Claude ask for the key each time.
+
+After updating config, restart Claude Desktop.
 
 ### LangChain
 
@@ -175,12 +199,36 @@ Execute a payment-gated vote using the x402 protocol.
 **Parameters:**
 - `poll_id` (required) - Poll to vote on
 - `side` (required) - "yes" or "no"
-- `wallet_private_key` (required) - Base58 encoded private key
+- `wallet_private_key` (optional) - Base58 encoded private key (can use `WALLET_PRIVATE_KEY` env var instead)
 - `slippage` (optional) - Max slippage tolerance (default: 0.05 = 5%)
 
 **Returns:** Vote result with transaction signature, amounts, slippage
 
 **⚠️ IMPORTANT:** This executes a real on-chain transaction that costs USDC.
+
+**Wallet Configuration Options:**
+
+1. **Prompt for key each time (Most Secure - Recommended for mainnet):**
+   - AI will ask for your wallet key when voting
+   - Keys are never stored
+   - You review each vote before providing key
+
+2. **Environment variable (Convenient for testing):**
+   ```bash
+   export WALLET_PRIVATE_KEY="your-base58-private-key"
+   ```
+   - AI uses this key automatically when voting
+   - **Only use with devnet keys for testing**
+   - Never store mainnet keys in environment variables
+
+3. **Provide in tool call:**
+   ```typescript
+   await adapter.executeFunction('futarchy_vote', {
+     poll_id: 'abc123',
+     side: 'yes',
+     wallet_private_key: 'your-base58-key'
+   });
+   ```
 
 ### 5. `futarchy_get_stats`
 
@@ -241,6 +289,9 @@ const mainnetClient = new Futarchy402Client({
 ```bash
 # Network selection (default: mainnet)
 FUTARCHY_NETWORK=devnet
+
+# Wallet private key for voting (optional - only use with devnet!)
+WALLET_PRIVATE_KEY="your-base58-private-key"
 
 # Override API URL (optional)
 FUTARCHY_API_URL="https://custom-api.example.com"
@@ -318,11 +369,29 @@ npm run format
 
 ## Security
 
-- **Never commit private keys** to version control
-- Use environment variables for sensitive data
-- Review transactions before signing
-- Test on devnet before mainnet
-- The `futarchy_vote` tool executes real on-chain transactions
+### Critical Security Guidelines
+
+- **Never commit private keys** to version control (.env files are in .gitignore)
+- **Never store mainnet keys** in environment variables or config files
+- **Only use `WALLET_PRIVATE_KEY` env var with devnet keys** for testing
+- Review all transactions before signing
+- Always test on devnet before using mainnet
+- The `futarchy_vote` tool executes real on-chain transactions that cost USDC
+
+### Wallet Key Best Practices
+
+**For Devnet Testing:**
+- ✅ Store devnet keys in `WALLET_PRIVATE_KEY` environment variable
+- ✅ Add to MCP server config for convenience
+- ✅ Use for automated testing
+
+**For Mainnet Production:**
+- ✅ Let AI prompt for wallet key each time
+- ✅ Review poll details before providing key
+- ✅ Keep keys in secure password manager
+- ❌ Never store in environment variables
+- ❌ Never store in config files
+- ❌ Never commit to version control
 
 ## License
 

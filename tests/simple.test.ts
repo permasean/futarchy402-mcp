@@ -53,7 +53,8 @@ describe('Tool Definitions', () => {
     const voteTool = allTools.find(t => t.name === 'futarchy_vote');
     expect(voteTool?.required).toContain('poll_id');
     expect(voteTool?.required).toContain('side');
-    expect(voteTool?.required).toContain('wallet_private_key');
+    // wallet_private_key is now optional (can use WALLET_PRIVATE_KEY env var)
+    expect(voteTool?.required).not.toContain('wallet_private_key');
   });
 });
 

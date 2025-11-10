@@ -111,8 +111,8 @@ export const voteTool: ToolDefinition = {
     },
     wallet_private_key: {
       type: 'string',
-      description: 'Base58 encoded Solana wallet private key for signing the payment transaction',
-      required: true,
+      description: 'Base58 encoded Solana wallet private key for signing the payment transaction. Optional if WALLET_PRIVATE_KEY environment variable is set.',
+      required: false,
     },
     slippage: {
       type: 'number',
@@ -120,7 +120,7 @@ export const voteTool: ToolDefinition = {
       default: 0.05,
     },
   },
-  required: ['poll_id', 'side', 'wallet_private_key'],
+  required: ['poll_id', 'side'],
 };
 
 /**
