@@ -1,5 +1,5 @@
 {
-  "name": "futarchy402-mcp",
+  "name": "@futarchy402/mcp",
   "version": "1.0.0",
   "description": "MCP server and adapters for Futarchy402 governance platform with x402 payment-gated voting",
   "main": "dist/index.js",
@@ -26,8 +26,16 @@
     "claude",
     "langchain"
   ],
-  "author": "",
+  "author": "permasean",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/permasean/futarchy402-mcp.git"
+  },
+  "homepage": "https://github.com/permasean/futarchy402-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/permasean/futarchy402-mcp/issues"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
