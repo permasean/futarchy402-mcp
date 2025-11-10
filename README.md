@@ -25,7 +25,7 @@ All platforms share the same core implementation, including the critical **x402 
 ## Installation
 
 ```bash
-npm install futarchy402-mcp
+npm install @futarchy402/mcp
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ npm install futarchy402-mcp
 ### OpenAI
 
 ```typescript
-import { OpenAIFutarchyAdapter } from 'futarchy402-mcp/adapters/openai';
+import { OpenAIFutarchyAdapter } from '@futarchy402/mcp/adapters/openai';
 import OpenAI from 'openai';
 
 const openai = new OpenAI();
@@ -58,7 +58,7 @@ for (const toolCall of response.choices[0].message.tool_calls || []) {
 ### Anthropic Claude
 
 ```typescript
-import { ClaudeFutarchyAdapter } from 'futarchy402-mcp/adapters/anthropic';
+import { ClaudeFutarchyAdapter } from '@futarchy402/mcp/adapters/anthropic';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic();
@@ -83,7 +83,7 @@ Add to your MCP configuration:
   "mcpServers": {
     "futarchy402": {
       "command": "node",
-      "args": ["node_modules/futarchy402-mcp/dist/adapters/mcp/server.js"]
+      "args": ["node_modules/@futarchy402/mcp/dist/adapters/mcp/server.js"]
     }
   }
 }
@@ -92,7 +92,7 @@ Add to your MCP configuration:
 ### LangChain
 
 ```typescript
-import { LangChainFutarchyAdapter } from 'futarchy402-mcp/adapters/langchain';
+import { LangChainFutarchyAdapter } from '@futarchy402/mcp/adapters/langchain';
 import { ChatOpenAI } from '@langchain/openai';
 import { createToolCallingAgent, AgentExecutor } from 'langchain/agents';
 
@@ -111,7 +111,7 @@ const result = await executor.invoke({
 ### Direct SDK Usage
 
 ```typescript
-import { Futarchy402Client, executeVote } from 'futarchy402-mcp';
+import { Futarchy402Client, executeVote } from '@futarchy402/mcp';
 
 const client = new Futarchy402Client();
 
@@ -223,7 +223,7 @@ SOLANA_RPC_MAINNET="https://api.mainnet-beta.solana.com"
 Or configure programmatically:
 
 ```typescript
-import { Futarchy402Client } from 'futarchy402-mcp';
+import { Futarchy402Client } from '@futarchy402/mcp';
 
 const client = new Futarchy402Client({
   apiBaseUrl: 'https://custom-api.example.com',
