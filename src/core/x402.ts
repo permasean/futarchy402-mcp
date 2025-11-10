@@ -102,18 +102,12 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     // Step 3: Parse x402 response from body (not header)
     const x402Response: X402Response = await initialResponse.json() as X402Response;
 
-    // Debug: Log the full response structure
-    console.error('[x402] Full 402 response:', JSON.stringify(x402Response, null, 2));
-
     if (!x402Response.accepts || x402Response.accepts.length === 0) {
       throw new Error('No payment methods accepted in x402 response');
     }
 
     // Use the first accepted payment method
     const requirement = x402Response.accepts[0];
-
-    // Debug: Log the payment requirement
-    console.error('[x402] Payment requirement:', JSON.stringify(requirement, null, 2));
 
     // Validate it's a Solana payment (scheme can be "solana" or "exact")
     const isSolanaPayment = requirement.scheme === 'solana' ||
@@ -146,8 +140,6 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     }
     const feePayerPubkey = new PublicKey(feePayer);
 
-    console.error('[x402] Fee payer:', feePayerPubkey.toBase58());
-
     // Step 7: Get or create associated token accounts
     const destPubkey = new PublicKey(requirement.payTo);
     const userAta = await getAssociatedTokenAddress(
@@ -173,7 +165,6 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     // Check if destination ATA exists, create if needed
     const destAtaInfo = await connection.getAccountInfo(destAta);
     if (!destAtaInfo) {
-      console.error('[x402] Destination ATA does not exist, adding create instruction');
       instructions.push(
         createAssociatedTokenAccountInstruction(
           feePayerPubkey, // fee payer pays for account creation
@@ -214,30 +205,17 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     transaction.sign([voterKeypair]);
 
     // Step 10: Create X-Payment header payload
-    const serializedTx = transaction.serialize();
     const paymentPayload = {
       x402Version: x402Response.x402Version,
       scheme: requirement.scheme,
       network: requirement.network,
       payload: {
-        transaction: Buffer.from(serializedTx).toString('base64'),
+        transaction: Buffer.from(transaction.serialize()).toString('base64'),
       },
     };
 
-    // Debug logging
-    console.error('[x402] Payment payload structure:', JSON.stringify({
-      x402Version: paymentPayload.x402Version,
-      scheme: paymentPayload.scheme,
-      network: paymentPayload.network,
-      transactionLength: serializedTx.length,
-    }));
-    console.error('[x402] Transaction base64 (first 100 chars):', Buffer.from(serializedTx).toString('base64').substring(0, 100));
-    console.error('[x402] Voter pubkey:', voterPubkey.toBase58());
-
     // Encode the entire payload as base64
     const paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
-
-    console.error('[x402] X-Payment header (first 200 chars):', paymentHeader.substring(0, 200));
 
     // Step 11: Submit vote with X-Payment header
     const paymentResponse = await fetch(voteUrl, {
