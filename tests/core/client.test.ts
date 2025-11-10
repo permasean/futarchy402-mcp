@@ -2,25 +2,25 @@
  * Tests for Futarchy402Client
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Futarchy402Client } from '../../src/core/client.js';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { mockPollListResponse, mockPollDetails, mockPosition, mockStats } from '../fixtures/polls.js';
-import { MockFetchBuilder } from '../helpers/mock-fetch.js';
+
+// Mock node-fetch before importing client
+vi.mock('node-fetch');
+
+import fetch from 'node-fetch';
+import { Futarchy402Client } from '../../src/core/client.js';
+
+const mockFetch = vi.mocked(fetch);
 
 describe('Futarchy402Client', () => {
   let client: Futarchy402Client;
-  let mockFetch: typeof fetch;
-  let originalFetch: typeof fetch;
 
   beforeEach(() => {
     client = new Futarchy402Client({
       apiBaseUrl: 'https://test-api.example.com',
     });
-    originalFetch = global.fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
+    mockFetch.mockReset();
   });
 
   describe('constructor', () => {
@@ -51,12 +51,11 @@ describe('Futarchy402Client', () => {
 
   describe('listPolls', () => {
     it('should list all polls', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/polls', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollListResponse,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockPollListResponse,
+      } as any);
 
       const result = await client.listPolls();
 
@@ -65,12 +64,11 @@ describe('Futarchy402Client', () => {
     });
 
     it('should filter by status', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/polls\\?status=open', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: { ...mockPollListResponse, polls: [mockPollListResponse.polls[0]] },
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => ({ ...mockPollListResponse, polls: [mockPollListResponse.polls[0]] }),
+      } as any);
 
       const result = await client.listPolls({ status: 'open' });
 
@@ -79,26 +77,27 @@ describe('Futarchy402Client', () => {
     });
 
     it('should handle pagination', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/polls\\?limit=10&offset=20', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollListResponse,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => ({
+          ...mockPollListResponse,
+          pagination: { limit: 10, offset: 20, total: 2 },
+        }),
+      } as any);
 
-      await client.listPolls({ limit: 10, offset: 20 });
+      const result = await client.listPolls({ limit: 10, offset: 20 });
 
-      // Test passes if no error thrown
-      expect(true).toBe(true);
+      expect(result.pagination.limit).toBe(10);
+      expect(result.pagination.offset).toBe(20);
     });
 
     it('should throw on API error', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/polls', {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-      });
-      global.fetch = mockBuilder.build();
+      } as any);
 
       await expect(client.listPolls()).rejects.toThrow('Failed to list polls');
     });
@@ -106,12 +105,11 @@ describe('Futarchy402Client', () => {
 
   describe('getPoll', () => {
     it('should get poll details', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/poll/test-poll-1', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollDetails,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockPollDetails,
+      } as any);
 
       const result = await client.getPoll('test-poll-1');
 
@@ -120,11 +118,10 @@ describe('Futarchy402Client', () => {
     });
 
     it('should throw on 404', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/poll/nonexistent', {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
         status: 404,
-      });
-      global.fetch = mockBuilder.build();
+      } as any);
 
       await expect(client.getPoll('nonexistent')).rejects.toThrow('Poll not found');
     });
@@ -132,15 +129,11 @@ describe('Futarchy402Client', () => {
 
   describe('getPosition', () => {
     it('should get position details', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse(
-        'https://test-api.example.com/poll/test-poll-1/position\\?voter_pubkey=Voter1',
-        {
-          status: 200,
-          body: mockPosition,
-        }
-      );
-      global.fetch = mockBuilder.build();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockPosition,
+      } as any);
 
       const result = await client.getPosition('test-poll-1', 'Voter1');
 
@@ -149,27 +142,19 @@ describe('Futarchy402Client', () => {
     });
 
     it('should throw on missing voter_pubkey', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse(
-        'https://test-api.example.com/poll/test-poll-1/position\\?voter_pubkey=',
-        {
-          status: 400,
-        }
-      );
-      global.fetch = mockBuilder.build();
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+      } as any);
 
       await expect(client.getPosition('test-poll-1', '')).rejects.toThrow();
     });
 
     it('should throw on no position found', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse(
-        'https://test-api.example.com/poll/test-poll-1/position\\?voter_pubkey=NoVoter',
-        {
-          status: 404,
-        }
-      );
-      global.fetch = mockBuilder.build();
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      } as any);
 
       await expect(client.getPosition('test-poll-1', 'NoVoter')).rejects.toThrow(
         'No position found'
@@ -179,12 +164,11 @@ describe('Futarchy402Client', () => {
 
   describe('getStats', () => {
     it('should get platform stats', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('https://test-api.example.com/stats', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockStats,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockStats,
+      } as any);
 
       const result = await client.getStats();
 
