@@ -7,16 +7,30 @@ import { Poll, PollListResponse, PollDetails, Position, Stats } from './types.js
 
 export interface ClientConfig {
   apiBaseUrl?: string;
+  network?: 'mainnet' | 'devnet';
 }
 
 export class Futarchy402Client {
   private apiBaseUrl: string;
+  private network: 'mainnet' | 'devnet';
 
   constructor(config: ClientConfig = {}) {
-    this.apiBaseUrl =
-      config.apiBaseUrl ||
-      process.env.FUTARCHY_API_URL ||
-      'https://futarchy402-api-385498168887.us-central1.run.app';
+    // Determine network from config or environment
+    this.network = config.network ||
+      (process.env.FUTARCHY_NETWORK as 'mainnet' | 'devnet') ||
+      'mainnet';
+
+    // Set API URL based on network or explicit config
+    if (config.apiBaseUrl) {
+      this.apiBaseUrl = config.apiBaseUrl;
+    } else if (process.env.FUTARCHY_API_URL) {
+      this.apiBaseUrl = process.env.FUTARCHY_API_URL;
+    } else {
+      // Default URLs based on network
+      this.apiBaseUrl = this.network === 'devnet'
+        ? 'https://futarchy402-api-devnet-385498168887.us-central1.run.app'
+        : 'https://futarchy402-api-385498168887.us-central1.run.app';
+    }
   }
 
   /**
@@ -101,6 +115,13 @@ export class Futarchy402Client {
    */
   getBaseUrl(): string {
     return this.apiBaseUrl;
+  }
+
+  /**
+   * Get the current network
+   */
+  getNetwork(): 'mainnet' | 'devnet' {
+    return this.network;
   }
 }
 

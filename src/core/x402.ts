@@ -15,6 +15,7 @@ export interface VoteParams {
   slippage?: number;
   apiBaseUrl?: string;
   facilitatorUrl?: string;
+  network?: 'mainnet' | 'devnet';
 }
 
 /**
@@ -30,9 +31,19 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     side,
     walletPrivateKey,
     slippage = 0.05,
-    apiBaseUrl = process.env.FUTARCHY_API_URL || 'https://futarchy402-api-385498168887.us-central1.run.app',
-    facilitatorUrl = process.env.FACILITATOR_URL || 'https://x402.org/facilitator',
+    network = (process.env.FUTARCHY_NETWORK as 'mainnet' | 'devnet') || 'mainnet',
   } = params;
+
+  // Determine API URL based on network
+  const apiBaseUrl = params.apiBaseUrl ||
+    process.env.FUTARCHY_API_URL ||
+    (network === 'devnet'
+      ? 'https://futarchy402-api-devnet-385498168887.us-central1.run.app'
+      : 'https://futarchy402-api-385498168887.us-central1.run.app');
+
+  const facilitatorUrl = params.facilitatorUrl ||
+    process.env.FACILITATOR_URL ||
+    'https://x402.org/facilitator';
 
   try {
     // Step 1: Decode wallet keypair

@@ -206,18 +206,17 @@ This is implemented in [`src/core/x402.ts`](src/core/x402.ts) and handles:
 
 ## Configuration
 
-Environment variables:
+### Network Selection
+
+The SDK supports both mainnet and devnet. **Always test on devnet first!**
 
 ```bash
-# Optional: Custom API URL
-FUTARCHY_API_URL="https://futarchy402-api-385498168887.us-central1.run.app"
+# Set network (mainnet or devnet)
+FUTARCHY_NETWORK=devnet
 
-# Optional: Custom facilitator
-FACILITATOR_URL="https://x402.org/facilitator"
-
-# Optional: Custom Solana RPC
-SOLANA_RPC_DEVNET="https://api.devnet.solana.com"
-SOLANA_RPC_MAINNET="https://api.mainnet-beta.solana.com"
+# Network-specific API URLs are set automatically
+# devnet: https://futarchy402-api-devnet-385498168887.us-central1.run.app
+# mainnet: https://futarchy402-api-385498168887.us-central1.run.app
 ```
 
 Or configure programmatically:
@@ -225,8 +224,42 @@ Or configure programmatically:
 ```typescript
 import { Futarchy402Client } from '@futarchy402/mcp';
 
+// Use devnet for testing
+const devnetClient = new Futarchy402Client({
+  network: 'devnet'
+});
+
+// Use mainnet for production
+const mainnetClient = new Futarchy402Client({
+  network: 'mainnet'
+});
+```
+
+### Environment Variables
+
+```bash
+# Network selection (default: mainnet)
+FUTARCHY_NETWORK=devnet
+
+# Override API URL (optional)
+FUTARCHY_API_URL="https://custom-api.example.com"
+
+# Override facilitator URL (optional)
+FACILITATOR_URL="https://x402.org/facilitator"
+
+# Override Solana RPC endpoints (optional)
+SOLANA_RPC_DEVNET="https://api.devnet.solana.com"
+SOLANA_RPC_MAINNET="https://api.mainnet-beta.solana.com"
+```
+
+### Custom Configuration
+
+```typescript
+import { Futarchy402Client } from '@futarchy402/mcp';
+
 const client = new Futarchy402Client({
   apiBaseUrl: 'https://custom-api.example.com',
+  network: 'devnet',
 });
 ```
 
