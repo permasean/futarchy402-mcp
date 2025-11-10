@@ -10,6 +10,34 @@ import bs58 from 'bs58';
 // Mock node-fetch
 vi.mock('node-fetch');
 
+// Mock @solana/web3.js Connection
+vi.mock('@solana/web3.js', async () => {
+  const actual = await vi.importActual('@solana/web3.js');
+  return {
+    ...actual,
+    Connection: vi.fn().mockImplementation(() => ({
+      getLatestBlockhash: vi.fn().mockResolvedValue({
+        blockhash: 'mock-blockhash',
+      }),
+      getAccountInfo: vi.fn().mockResolvedValue(null),
+    })),
+  };
+});
+
+// Mock @solana/spl-token
+vi.mock('@solana/spl-token', async () => {
+  const actual = await vi.importActual('@solana/spl-token');
+  return {
+    ...actual,
+    getMint: vi.fn().mockResolvedValue({
+      decimals: 6,
+    }),
+    getAssociatedTokenAddress: vi.fn().mockResolvedValue({
+      toBase58: () => 'mock-ata',
+    }),
+  };
+});
+
 import fetch from 'node-fetch';
 import { executeVote } from '../../src/core/x402.js';
 
@@ -78,13 +106,15 @@ describe('x402 Payment Protocol', () => {
       expect(result.error).toContain('Poll not found');
     });
 
-    it('should handle missing X-Payment-Required header', async () => {
+    it('should handle missing accepts array in x402 response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 402,
-        headers: {
-          get: () => null,
-        },
+        json: async () => ({
+          x402Version: '1.0',
+          resource: 'https://test.com',
+          accepts: [],
+        }),
       } as any);
 
       const result = await executeVote({
@@ -95,7 +125,37 @@ describe('x402 Payment Protocol', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Missing X-Payment-Required header');
+      expect(result.error).toContain('No payment methods accepted');
+    });
+
+    it('should handle unsupported payment scheme', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: async () => ({
+          x402Version: '1.0',
+          resource: 'https://test.com',
+          accepts: [
+            {
+              scheme: 'ethereum',
+              network: 'mainnet',
+              payTo: 'address',
+              splToken: 'token',
+              maxAmountRequired: '1000000',
+            },
+          ],
+        }),
+      } as any);
+
+      const result = await executeVote({
+        pollId: 'test-poll-1',
+        side: 'yes',
+        walletPrivateKey: testPrivateKey,
+        apiBaseUrl: 'https://test-api.example.com',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Unsupported payment scheme');
     });
 
     it('should handle invalid wallet private key', async () => {
