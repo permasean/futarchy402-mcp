@@ -2,21 +2,20 @@
  * Tests for Anthropic/Claude adapter
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { toClaudeTool, getClaudeTools, ClaudeFutarchyAdapter } from '../../src/adapters/anthropic/adapter.js';
 import { listPollsTool, voteTool } from '../../src/tools/definitions.js';
 import { mockPollListResponse } from '../fixtures/polls.js';
-import { MockFetchBuilder } from '../helpers/mock-fetch.js';
+
+// Mock node-fetch
+vi.mock('node-fetch');
+
+import fetch from 'node-fetch';
+const mockFetch = vi.mocked(fetch);
 
 describe('Anthropic/Claude Adapter', () => {
-  let originalFetch: typeof fetch;
-
   beforeEach(() => {
-    originalFetch = global.fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
+    mockFetch.mockReset();
   });
 
   describe('toClaudeTool', () => {
@@ -71,12 +70,11 @@ describe('Anthropic/Claude Adapter', () => {
     });
 
     it('should execute tool successfully', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('.*polls.*', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollListResponse,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockPollListResponse,
+      } as any);
 
       const adapter = new ClaudeFutarchyAdapter();
       const result = await adapter.executeTool('futarchy_list_polls', {});
@@ -94,12 +92,11 @@ describe('Anthropic/Claude Adapter', () => {
     });
 
     it('should pass parameters correctly', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('.*status=open.*', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: { ...mockPollListResponse, polls: [mockPollListResponse.polls[0]] },
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => ({ ...mockPollListResponse, polls: [mockPollListResponse.polls[0]] }),
+      } as any);
 
       const adapter = new ClaudeFutarchyAdapter();
       const result = await adapter.executeTool('futarchy_list_polls', {
@@ -107,6 +104,7 @@ describe('Anthropic/Claude Adapter', () => {
       });
 
       expect(result.polls).toHaveLength(1);
+      expect(result.polls[0].status).toBe('open');
     });
   });
 });

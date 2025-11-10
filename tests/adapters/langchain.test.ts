@@ -2,20 +2,19 @@
  * Tests for LangChain adapter
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getLangChainTools, LangChainFutarchyAdapter } from '../../src/adapters/langchain/adapter.js';
 import { mockPollListResponse } from '../fixtures/polls.js';
-import { MockFetchBuilder } from '../helpers/mock-fetch.js';
+
+// Mock node-fetch
+vi.mock('node-fetch');
+
+import fetch from 'node-fetch';
+const mockFetch = vi.mocked(fetch);
 
 describe('LangChain Adapter', () => {
-  let originalFetch: typeof fetch;
-
   beforeEach(() => {
-    originalFetch = global.fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
+    mockFetch.mockReset();
   });
 
   describe('getLangChainTools', () => {
@@ -66,12 +65,11 @@ describe('LangChain Adapter', () => {
     });
 
     it('should execute tool successfully', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('.*polls.*', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollListResponse,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockPollListResponse,
+      } as any);
 
       const adapter = new LangChainFutarchyAdapter();
       const tool = adapter.getTool('futarchy_list_polls');
@@ -102,12 +100,11 @@ describe('LangChain Adapter', () => {
     });
 
     it('should pass parameters correctly', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('.*status=resolved.*', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: { ...mockPollListResponse, polls: [mockPollListResponse.polls[1]] },
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => ({ ...mockPollListResponse, polls: [mockPollListResponse.polls[0]] }),
+      } as any);
 
       const adapter = new LangChainFutarchyAdapter();
       const tool = adapter.getTool('futarchy_list_polls');
@@ -116,10 +113,11 @@ describe('LangChain Adapter', () => {
         throw new Error('Tool not found');
       }
 
-      const result = await tool.func({ status: 'resolved' });
+      const result = await tool.func({ status: 'open' });
       const parsed = JSON.parse(result);
 
       expect(parsed.polls).toHaveLength(1);
+      expect(parsed.polls[0].status).toBe('open');
     });
   });
 });

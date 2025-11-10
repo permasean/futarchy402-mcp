@@ -2,21 +2,20 @@
  * Tests for OpenAI adapter
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { toOpenAITool, getOpenAITools, OpenAIFutarchyAdapter } from '../../src/adapters/openai/adapter.js';
 import { listPollsTool, voteTool } from '../../src/tools/definitions.js';
 import { mockPollListResponse } from '../fixtures/polls.js';
-import { MockFetchBuilder } from '../helpers/mock-fetch.js';
+
+// Mock node-fetch
+vi.mock('node-fetch');
+
+import fetch from 'node-fetch';
+const mockFetch = vi.mocked(fetch);
 
 describe('OpenAI Adapter', () => {
-  let originalFetch: typeof fetch;
-
   beforeEach(() => {
-    originalFetch = global.fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
+    mockFetch.mockReset();
   });
 
   describe('toOpenAITool', () => {
@@ -72,12 +71,11 @@ describe('OpenAI Adapter', () => {
     });
 
     it('should execute function successfully', async () => {
-      const mockBuilder = new MockFetchBuilder();
-      mockBuilder.addResponse('.*polls.*', {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        body: mockPollListResponse,
-      });
-      global.fetch = mockBuilder.build();
+        json: async () => mockPollListResponse,
+      } as any);
 
       const adapter = new OpenAIFutarchyAdapter();
       const result = await adapter.executeFunction(
