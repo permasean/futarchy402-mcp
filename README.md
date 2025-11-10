@@ -210,13 +210,14 @@ This is implemented in [`src/core/x402.ts`](src/core/x402.ts) and handles:
 
 The SDK supports both mainnet and devnet. **Always test on devnet first!**
 
+The `network` parameter determines which Solana network (mainnet/devnet) is used for transaction signing. The Futarchy402 API URL is the same for both networks.
+
 ```bash
 # Set network (mainnet or devnet)
 FUTARCHY_NETWORK=devnet
 
-# Network-specific API URLs are set automatically
-# devnet: https://futarchy402-api-devnet-385498168887.us-central1.run.app
-# mainnet: https://futarchy402-api-385498168887.us-central1.run.app
+# API URL (same for both networks)
+FUTARCHY_API_URL="https://futarchy402-api-385498168887.us-central1.run.app"
 ```
 
 Or configure programmatically:

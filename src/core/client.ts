@@ -26,10 +26,9 @@ export class Futarchy402Client {
     } else if (process.env.FUTARCHY_API_URL) {
       this.apiBaseUrl = process.env.FUTARCHY_API_URL;
     } else {
-      // Default URLs based on network
-      this.apiBaseUrl = this.network === 'devnet'
-        ? 'https://futarchy402-api-devnet-385498168887.us-central1.run.app'
-        : 'https://futarchy402-api-385498168887.us-central1.run.app';
+      // Default URL - same for both mainnet and devnet
+      // TODO: Update with actual devnet URL when available
+      this.apiBaseUrl = 'https://futarchy402-api-385498168887.us-central1.run.app';
     }
   }
 
