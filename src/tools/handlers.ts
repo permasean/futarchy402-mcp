@@ -179,6 +179,7 @@ export const handleVote: ToolHandler = async (context, args) => {
     walletPrivateKey: wallet_private_key,
     slippage: slippage ?? 0.05,
     apiBaseUrl: context.client.getBaseUrl(),
+    network: context.client.getNetwork(),
   });
 
   if (!result.success) {
