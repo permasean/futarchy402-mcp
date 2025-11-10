@@ -37,8 +37,8 @@ describe('Wallet Utilities', () => {
 });
 
 describe('Tool Definitions', () => {
-  it('should export 5 tools', () => {
-    expect(allTools).toHaveLength(5);
+  it('should export 6 tools', () => {
+    expect(allTools).toHaveLength(6);
   });
 
   it('should have correct tool names', () => {
@@ -47,6 +47,7 @@ describe('Tool Definitions', () => {
     expect(ToolNames.GET_POSITION).toBe('futarchy_get_position');
     expect(ToolNames.VOTE).toBe('futarchy_vote');
     expect(ToolNames.GET_STATS).toBe('futarchy_get_stats');
+    expect(ToolNames.GET_MY_WALLET).toBe('futarchy_get_my_wallet');
   });
 
   it('should have required parameters for vote tool', () => {
@@ -61,7 +62,7 @@ describe('Tool Definitions', () => {
 describe('OpenAI Adapter', () => {
   it('should convert tools to OpenAI format', () => {
     const tools = getOpenAITools();
-    expect(tools).toHaveLength(5);
+    expect(tools).toHaveLength(6);
 
     tools.forEach(tool => {
       expect(tool.type).toBe('function');
@@ -80,7 +81,7 @@ describe('OpenAI Adapter', () => {
 describe('Claude Adapter', () => {
   it('should convert tools to Claude format', () => {
     const tools = getClaudeTools();
-    expect(tools).toHaveLength(5);
+    expect(tools).toHaveLength(6);
 
     tools.forEach(tool => {
       expect(tool.name).toBeDefined();
@@ -98,7 +99,7 @@ describe('Claude Adapter', () => {
 describe('LangChain Adapter', () => {
   it('should convert tools to LangChain format', () => {
     const tools = getLangChainTools();
-    expect(tools).toHaveLength(5);
+    expect(tools).toHaveLength(6);
 
     tools.forEach(tool => {
       expect(tool.name).toBeDefined();

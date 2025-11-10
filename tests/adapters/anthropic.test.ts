@@ -54,7 +54,7 @@ describe('Anthropic/Claude Adapter', () => {
     it('should return all tools in Claude format', () => {
       const tools = getClaudeTools();
 
-      expect(tools).toHaveLength(5);
+      expect(tools).toHaveLength(6);
       tools.forEach((tool) => {
         expect(tool.name).toBeDefined();
         expect(tool.input_schema).toBeDefined();
@@ -66,7 +66,7 @@ describe('Anthropic/Claude Adapter', () => {
     it('should create adapter with default client', () => {
       const adapter = new ClaudeFutarchyAdapter();
 
-      expect(adapter.getTools()).toHaveLength(5);
+      expect(adapter.getTools()).toHaveLength(6);
       expect(adapter.getClient()).toBeDefined();
     });
 
