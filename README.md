@@ -240,13 +240,13 @@ Get platform-wide statistics.
 
 The voting mechanism uses the x402 payment-gated protocol:
 
-1. Request vote → Receive 402 Payment Required
-2. Parse payment requirements from `X-Payment-Required` header
-3. Generate transaction via facilitator (x402.org)
-4. Sign transaction with wallet
-5. Submit signed transaction with `X-Payment` header
+1. Request vote → Receive 402 Payment Required with payment requirements
+2. Build SPL token transfer transaction using @solana/spl-token
+3. Sign transaction with wallet
+4. Submit signed transaction with `X-Payment` header to vote endpoint
 
 This is implemented in [`src/core/x402.ts`](src/core/x402.ts) and handles:
+- SPL token transfer transaction building
 - Slippage protection
 - Duplicate vote prevention
 - Transaction confirmation
@@ -295,9 +295,6 @@ WALLET_PRIVATE_KEY="your-base58-private-key"
 
 # Override API URL (optional)
 FUTARCHY_API_URL="https://custom-api.example.com"
-
-# Override facilitator URL (optional)
-FACILITATOR_URL="https://x402.org/facilitator"
 
 # Override Solana RPC endpoints (optional)
 SOLANA_RPC_DEVNET="https://api.devnet.solana.com"

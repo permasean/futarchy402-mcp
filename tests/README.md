@@ -60,10 +60,10 @@ npm test -- --grep "x402"
 - ✅ Unsupported network error
 
 **x402.test.ts** - Payment protocol
-- ✅ Full 402 payment flow (request → facilitator → submit)
+- ✅ Full 402 payment flow (request → build transaction → submit)
 - ✅ Error handling: 400, 403, 404, 409
-- ✅ Missing X-Payment-Required header
-- ✅ Facilitator errors
+- ✅ Missing x402 response data
+- ✅ Unsupported payment schemes
 - ✅ Slippage exceeded (409)
 - ✅ Default slippage parameter
 - ✅ Invalid wallet private key
