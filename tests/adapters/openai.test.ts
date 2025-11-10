@@ -55,7 +55,7 @@ describe('OpenAI Adapter', () => {
     it('should return all tools in OpenAI format', () => {
       const tools = getOpenAITools();
 
-      expect(tools).toHaveLength(5);
+      expect(tools).toHaveLength(6);
       tools.forEach((tool) => {
         expect(tool.type).toBe('function');
         expect(tool.function.name).toBeDefined();
@@ -67,7 +67,7 @@ describe('OpenAI Adapter', () => {
     it('should create adapter with default client', () => {
       const adapter = new OpenAIFutarchyAdapter();
 
-      expect(adapter.getTools()).toHaveLength(5);
+      expect(adapter.getTools()).toHaveLength(6);
       expect(adapter.getClient()).toBeDefined();
     });
 
