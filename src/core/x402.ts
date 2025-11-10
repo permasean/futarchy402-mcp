@@ -1,11 +1,28 @@
 /**
  * x402 Payment-Gated Voting Implementation
  * This is the CRITICAL component for voting on polls
+ *
+ * This implementation builds Solana SPL token transfer transactions directly
+ * without using a facilitator service.
  */
 
-import { Connection, Transaction } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  TransactionMessage,
+  VersionedTransaction,
+  ComputeBudgetProgram,
+} from '@solana/web3.js';
+import {
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createTransferCheckedInstruction,
+  TOKEN_PROGRAM_ID,
+  getMint,
+} from '@solana/spl-token';
 import fetch from 'node-fetch';
-import { VoteResult, X402PaymentRequirements, VoteSide } from './types.js';
+import { VoteResult, VoteSide } from './types.js';
 import { decodeWalletPrivateKey, getSolanaRpcUrl } from './wallet.js';
 
 export interface VoteParams {
@@ -14,16 +31,34 @@ export interface VoteParams {
   walletPrivateKey: string; // base58 encoded
   slippage?: number;
   apiBaseUrl?: string;
-  facilitatorUrl?: string;
   network?: 'mainnet' | 'devnet';
+}
+
+interface X402Response {
+  x402Version: string;
+  resource: string;
+  accepts: Array<{
+    scheme: string;
+    network: string;
+    payTo: string;
+    asset: string; // SPL token mint address
+    maxAmountRequired: string;
+    resource?: string;
+    description?: string;
+    mimeType?: string;
+    maxTimeoutSeconds?: number;
+    extra?: Record<string, any>;
+  }>;
 }
 
 /**
  * Execute a vote using x402 payment-gated protocol
  *
- * This implements the 2-step x402 payment flow:
+ * This implements the x402 payment flow by building SPL token transfers directly:
  * 1. Request without payment → Get 402 response with payment requirements
- * 2. Pay via facilitator → Submit signed transaction with X-Payment header
+ * 2. Build SPL token transfer transaction using @solana/spl-token
+ * 3. Sign transaction with user wallet
+ * 4. Submit signed transaction with X-Payment header containing the full payload
  */
 export async function executeVote(params: VoteParams): Promise<VoteResult> {
   const {
@@ -35,78 +70,183 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
   } = params;
 
   // Determine API URL
-  // TODO: Update with actual devnet URL when available
   const apiBaseUrl = params.apiBaseUrl ||
     process.env.FUTARCHY_API_URL ||
     'https://futarchy402-api-385498168887.us-central1.run.app';
 
-  const facilitatorUrl = params.facilitatorUrl ||
-    process.env.FACILITATOR_URL ||
-    'https://x402.org/facilitator';
-
   try {
     // Step 1: Decode wallet keypair
-    const walletKeypair = decodeWalletPrivateKey(walletPrivateKey);
+    const voterKeypair = decodeWalletPrivateKey(walletPrivateKey);
+    const voterPubkey = voterKeypair.publicKey;
 
     // Step 2: Request vote (expect 402 Payment Required response)
     const voteUrl = `${apiBaseUrl}/poll/${pollId}/vote?side=${side}&slippage=${slippage}`;
-    const voteResponse = await fetch(voteUrl, { method: 'POST' });
+    const initialResponse = await fetch(voteUrl, { method: 'POST' });
 
     // Validate we got a 402 response
-    if (voteResponse.status !== 402) {
+    if (initialResponse.status !== 402) {
       // Handle other error responses
-      if (voteResponse.status === 400) {
-        const error = await voteResponse.json();
+      if (initialResponse.status === 400) {
+        const error = await initialResponse.json();
         throw new Error(`Invalid vote request: ${JSON.stringify(error)}`);
       }
-      if (voteResponse.status === 403) {
+      if (initialResponse.status === 403) {
         throw new Error('Duplicate vote: You have already voted on this poll');
       }
-      if (voteResponse.status === 404) {
+      if (initialResponse.status === 404) {
         throw new Error(`Poll not found: ${pollId}`);
       }
-      throw new Error(`Expected 402 Payment Required, got ${voteResponse.status}`);
+      throw new Error(`Expected 402 Payment Required, got ${initialResponse.status}`);
     }
 
-    // Step 3: Parse payment requirements from X-Payment-Required header
-    const paymentHeader = voteResponse.headers.get('x-payment-required');
-    if (!paymentHeader) {
-      throw new Error('Missing X-Payment-Required header in 402 response');
+    // Step 3: Parse x402 response from body (not header)
+    const x402Response: X402Response = await initialResponse.json() as X402Response;
+
+    // Debug: Log the full response structure
+    console.error('[x402] Full 402 response:', JSON.stringify(x402Response, null, 2));
+
+    if (!x402Response.accepts || x402Response.accepts.length === 0) {
+      throw new Error('No payment methods accepted in x402 response');
     }
 
-    const paymentRequirements: X402PaymentRequirements = JSON.parse(paymentHeader);
+    // Use the first accepted payment method
+    const requirement = x402Response.accepts[0];
 
-    // Step 4: Request transaction from facilitator
-    const facilitatorResponse = await fetch(`${facilitatorUrl}/settle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        resourceUrl: voteUrl,
-        paymentRequirements,
-        walletPublicKey: walletKeypair.publicKey.toBase58(),
-      }),
-    });
+    // Debug: Log the payment requirement
+    console.error('[x402] Payment requirement:', JSON.stringify(requirement, null, 2));
 
-    if (!facilitatorResponse.ok) {
-      const error = await facilitatorResponse.json();
-      throw new Error(
-        `Facilitator error: ${(error as any).message || (error as any).error || 'Unknown error'}`
+    // Validate it's a Solana payment (scheme can be "solana" or "exact")
+    const isSolanaPayment = requirement.scheme === 'solana' ||
+                            requirement.scheme === 'exact' ||
+                            requirement.network?.includes('solana');
+
+    if (!isSolanaPayment) {
+      throw new Error(`Unsupported payment scheme: ${requirement.scheme}. Full requirement: ${JSON.stringify(requirement)}`);
+    }
+
+    // Validate we have the SPL token address (can be in 'asset' or 'splToken' field)
+    const tokenMint = requirement.asset;
+    if (!tokenMint) {
+      throw new Error(`Missing token mint address in payment requirement: ${JSON.stringify(requirement)}`);
+    }
+
+    // Step 4: Setup Solana connection
+    // Use the network from the API response (e.g., "solana-devnet")
+    const rpcUrl = getSolanaRpcUrl(requirement.network);
+    const connection = new Connection(rpcUrl, 'confirmed');
+
+    // Step 5: Get mint info for the SPL token
+    const mintPubkey = new PublicKey(tokenMint);
+    const mint = await getMint(connection, mintPubkey);
+
+    // Step 6: Get fee payer from payment requirements (facilitator pays transaction fees)
+    const feePayer = requirement.extra?.feePayer;
+    if (!feePayer) {
+      throw new Error('Payment requirements do not include a fee payer');
+    }
+    const feePayerPubkey = new PublicKey(feePayer);
+
+    console.error('[x402] Fee payer:', feePayerPubkey.toBase58());
+
+    // Step 7: Get or create associated token accounts
+    const destPubkey = new PublicKey(requirement.payTo);
+    const userAta = await getAssociatedTokenAddress(
+      mintPubkey,
+      voterPubkey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+    const destAta = await getAssociatedTokenAddress(
+      mintPubkey,
+      destPubkey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    // Step 8: Build transaction instructions
+    const instructions = [
+      // Set compute budget
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
+    ];
+
+    // Check if destination ATA exists, create if needed
+    const destAtaInfo = await connection.getAccountInfo(destAta);
+    if (!destAtaInfo) {
+      console.error('[x402] Destination ATA does not exist, adding create instruction');
+      instructions.push(
+        createAssociatedTokenAccountInstruction(
+          feePayerPubkey, // fee payer pays for account creation
+          destAta, // ata
+          destPubkey, // owner
+          mintPubkey, // mint
+          TOKEN_PROGRAM_ID
+        )
       );
     }
 
-    const { transaction: txBase64 } = (await facilitatorResponse.json()) as { transaction: string };
+    // Add transfer instruction
+    instructions.push(
+      createTransferCheckedInstruction(
+        userAta, // from
+        mintPubkey, // mint
+        destAta, // to
+        voterPubkey, // owner (voter signs the transfer)
+        BigInt(requirement.maxAmountRequired), // amount
+        mint.decimals, // decimals
+        [], // multiSigners
+        TOKEN_PROGRAM_ID
+      )
+    );
 
-    // Step 5: Deserialize and sign the transaction
-    const transaction = Transaction.from(Buffer.from(txBase64, 'base64'));
-    transaction.partialSign(walletKeypair);
+    // Step 9: Get recent blockhash and build transaction
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
-    // Step 6: Submit the signed transaction with X-Payment header
-    const signedTxBase64 = transaction.serialize().toString('base64');
+    const message = new TransactionMessage({
+      payerKey: feePayerPubkey, // Fee payer (facilitator) pays transaction fees
+      recentBlockhash: blockhash,
+      instructions,
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(message);
+
+    // Step 9: Sign the transaction
+    transaction.sign([voterKeypair]);
+
+    // Step 10: Create X-Payment header payload
+    const serializedTx = transaction.serialize();
+    const paymentPayload = {
+      x402Version: x402Response.x402Version,
+      scheme: requirement.scheme,
+      network: requirement.network,
+      payload: {
+        transaction: Buffer.from(serializedTx).toString('base64'),
+      },
+    };
+
+    // Debug logging
+    console.error('[x402] Payment payload structure:', JSON.stringify({
+      x402Version: paymentPayload.x402Version,
+      scheme: paymentPayload.scheme,
+      network: paymentPayload.network,
+      transactionLength: serializedTx.length,
+    }));
+    console.error('[x402] Transaction base64 (first 100 chars):', Buffer.from(serializedTx).toString('base64').substring(0, 100));
+    console.error('[x402] Voter pubkey:', voterPubkey.toBase58());
+
+    // Encode the entire payload as base64
+    const paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
+
+    console.error('[x402] X-Payment header (first 200 chars):', paymentHeader.substring(0, 200));
+
+    // Step 11: Submit vote with X-Payment header
     const paymentResponse = await fetch(voteUrl, {
       method: 'POST',
       headers: {
-        'X-Payment': signedTxBase64,
+        'Content-Type': 'application/json',
+        'X-Payment': paymentHeader,
       },
+      body: JSON.stringify({}), // Empty body required by API
     });
 
     if (!paymentResponse.ok) {
@@ -117,7 +257,7 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
       throw new Error(`Vote failed: ${JSON.stringify(error)}`);
     }
 
-    // Step 7: Parse and return success response
+    // Step 12: Parse and return success response
     const result = (await paymentResponse.json()) as VoteResult;
 
     return {
@@ -145,83 +285,27 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
  * Use this if you need to ensure the transaction is confirmed on-chain
  */
 export async function executeVoteWithConfirmation(params: VoteParams): Promise<VoteResult> {
-  const {
-    pollId,
-    side,
-    walletPrivateKey,
-    slippage = 0.05,
-    apiBaseUrl = process.env.FUTARCHY_API_URL || 'https://futarchy402-api-385498168887.us-central1.run.app',
-    facilitatorUrl = process.env.FACILITATOR_URL || 'https://x402.org/facilitator',
-  } = params;
+  const result = await executeVote(params);
+
+  if (!result.success || !result.transaction_signature) {
+    return result;
+  }
 
   try {
-    const walletKeypair = decodeWalletPrivateKey(walletPrivateKey);
-    const voteUrl = `${apiBaseUrl}/poll/${pollId}/vote?side=${side}&slippage=${slippage}`;
-    const voteResponse = await fetch(voteUrl, { method: 'POST' });
+    // Connect to Solana and wait for confirmation
+    const network = params.network ||
+      (process.env.FUTARCHY_NETWORK as 'mainnet' | 'devnet') ||
+      'mainnet';
+    const rpcUrl = getSolanaRpcUrl(network);
+    const connection = new Connection(rpcUrl, 'confirmed');
 
-    if (voteResponse.status !== 402) {
-      throw new Error(`Expected 402 Payment Required, got ${voteResponse.status}`);
-    }
+    await connection.confirmTransaction(result.transaction_signature, 'confirmed');
 
-    const paymentHeader = voteResponse.headers.get('x-payment-required');
-    if (!paymentHeader) {
-      throw new Error('Missing X-Payment-Required header');
-    }
-
-    const paymentRequirements: X402PaymentRequirements = JSON.parse(paymentHeader);
-
-    const facilitatorResponse = await fetch(`${facilitatorUrl}/settle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        resourceUrl: voteUrl,
-        paymentRequirements,
-        walletPublicKey: walletKeypair.publicKey.toBase58(),
-      }),
-    });
-
-    if (!facilitatorResponse.ok) {
-      throw new Error('Facilitator request failed');
-    }
-
-    const { transaction: txBase64 } = (await facilitatorResponse.json()) as { transaction: string };
-    const transaction = Transaction.from(Buffer.from(txBase64, 'base64'));
-    transaction.partialSign(walletKeypair);
-
-    // Get connection for confirmation
-    const connection = new Connection(getSolanaRpcUrl(paymentRequirements.network), 'confirmed');
-
-    // Send raw transaction and wait for confirmation
-    const signature = await connection.sendRawTransaction(transaction.serialize(), {
-      skipPreflight: false,
-    });
-
-    await connection.confirmTransaction(signature, 'confirmed');
-
-    // Now submit the vote with the confirmed transaction
-    const signedTxBase64 = transaction.serialize().toString('base64');
-    const paymentResponse = await fetch(voteUrl, {
-      method: 'POST',
-      headers: {
-        'X-Payment': signedTxBase64,
-      },
-    });
-
-    if (!paymentResponse.ok) {
-      throw new Error(`Vote submission failed: ${paymentResponse.status}`);
-    }
-
-    const result = (await paymentResponse.json()) as VoteResult;
-
-    return {
-      ...result,
-      success: true,
-      transaction_signature: signature,
-    };
+    return result;
   } catch (error: any) {
     return {
-      success: false,
-      error: error.message || 'Unknown error during vote execution with confirmation',
+      ...result,
+      error: `Vote submitted but confirmation failed: ${error.message}`,
     };
   }
 }

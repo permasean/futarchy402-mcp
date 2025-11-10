@@ -31,12 +31,16 @@ export function validatePublicKey(pubkey: string): boolean {
 
 /**
  * Get Solana RPC URL for a given network
+ * Accepts both short form (devnet/mainnet) and full form (solana-devnet/solana-mainnet)
  */
 export function getSolanaRpcUrl(network: string): string {
-  if (network === 'solana-devnet') {
+  // Normalize network name
+  const normalizedNetwork = network.toLowerCase();
+
+  if (normalizedNetwork === 'devnet' || normalizedNetwork === 'solana-devnet') {
     return process.env.SOLANA_RPC_DEVNET || 'https://api.devnet.solana.com';
   }
-  if (network === 'solana-mainnet') {
+  if (normalizedNetwork === 'mainnet' || normalizedNetwork === 'solana-mainnet' || normalizedNetwork === 'mainnet-beta') {
     return process.env.SOLANA_RPC_MAINNET || 'https://api.mainnet-beta.solana.com';
   }
   throw new Error(`Unsupported network: ${network}`);
