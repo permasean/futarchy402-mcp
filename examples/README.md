@@ -90,11 +90,62 @@ This example shows:
 
 You can also use the core SDK directly without adapters:
 
+### Basic SDK Example
+
+```bash
+tsx examples/sdk-basic-example.ts
+```
+
+This example shows:
+- Using the Futarchy402Client directly
+- Listing and filtering polls
+- Getting detailed poll information
+- Checking positions
+- Platform statistics
+- Commented voting example
+
+### Voting Example
+
+```bash
+# Using environment variable (recommended for devnet)
+WALLET_PRIVATE_KEY=your-key tsx examples/sdk-voting-example.ts
+
+# Or pass poll ID and side
+tsx examples/sdk-voting-example.ts <poll-id> <yes|no> <private-key>
+```
+
+This example shows:
+- Complete voting workflow
+- Entry fee calculation
+- Duplicate vote detection
+- Transaction execution
+- Position checking after vote
+- Error handling
+
+### Position Tracker
+
+```bash
+# Check positions for a specific wallet
+tsx examples/sdk-position-tracker.ts <wallet-pubkey>
+
+# Or use configured wallet
+WALLET_PRIVATE_KEY=your-key tsx examples/sdk-position-tracker.ts
+```
+
+This example shows:
+- Tracking all positions across all polls
+- Portfolio summary with total P&L
+- Open positions with projections
+- Resolved positions with actual results
+- Win rate and performance metrics
+
+### Quick SDK Reference
+
 ```typescript
-import { Futarchy402Client, executeVote } from 'futarchy402-mcp';
+import { Futarchy402Client, executeVote } from '@futarchy402/mcp';
 
 // Create client
-const client = new Futarchy402Client();
+const client = new Futarchy402Client({ network: 'devnet' });
 
 // List polls
 const { polls } = await client.listPolls({ status: 'open' });
@@ -102,26 +153,30 @@ const { polls } = await client.listPolls({ status: 'open' });
 // Get poll details
 const poll = await client.getPoll('poll-id');
 
+// Get position
+const position = await client.getPosition('poll-id', 'wallet-pubkey');
+
 // Vote (requires private key)
 const result = await executeVote({
   pollId: 'poll-id',
   side: 'yes',
   walletPrivateKey: 'base58-encoded-key',
   slippage: 0.05,
+  apiBaseUrl: client.getBaseUrl(),
+  network: client.getNetwork(),
 });
-
-console.log(result);
 ```
 
 ## Available Tools
 
-All platforms expose these 5 tools:
+All platforms expose these 6 tools:
 
 1. **futarchy_list_polls** - List and filter governance polls
 2. **futarchy_get_poll** - Get detailed poll information with votes
 3. **futarchy_get_position** - Get wallet position and profit/loss projections
 4. **futarchy_vote** - Execute a payment-gated vote using x402 protocol
 5. **futarchy_get_stats** - Get platform-wide statistics
+6. **futarchy_get_my_wallet** - Get configured wallet public key
 
 ## Example Queries
 
