@@ -40,7 +40,7 @@ export function getSolanaRpcUrl(network: string): string {
   if (normalizedNetwork === 'devnet' || normalizedNetwork === 'solana-devnet') {
     return process.env.SOLANA_RPC_DEVNET || 'https://api.devnet.solana.com';
   }
-  if (normalizedNetwork === 'mainnet' || normalizedNetwork === 'solana-mainnet' || normalizedNetwork === 'mainnet-beta') {
+  if (normalizedNetwork === 'mainnet' || normalizedNetwork === 'solana-mainnet' || normalizedNetwork === 'mainnet-beta' || normalizedNetwork === 'solana') {
     return process.env.SOLANA_RPC_MAINNET || 'https://api.mainnet-beta.solana.com';
   }
   throw new Error(`Unsupported network: ${network}`);

@@ -236,19 +236,22 @@ export async function executeVote(params: VoteParams): Promise<VoteResult> {
     }
 
     // Step 12: Parse and return success response
-    const result = (await paymentResponse.json()) as VoteResult;
+    const result = (await paymentResponse.json()) as any;
+
+    // API returns data nested under 'vote' field
+    const vote = result.vote || {};
 
     return {
       success: true,
-      vote_id: result.vote_id,
-      transaction_signature: result.transaction_signature,
-      amount_paid_usdc_base_units: result.amount_paid_usdc_base_units,
-      quoted_amount_usdc_base_units: result.quoted_amount_usdc_base_units,
-      actual_slippage: result.actual_slippage,
-      voter_pubkey: result.voter_pubkey,
-      side: result.side,
-      poll_id: result.poll_id,
-      timestamp: result.timestamp,
+      vote_id: vote.id,
+      transaction_signature: result.tx || vote.tx_signature,
+      amount_paid_usdc_base_units: vote.amount_paid_usdc_base_units?.toString(),
+      quoted_amount_usdc_base_units: undefined, // Not provided by API
+      actual_slippage: undefined, // Not provided by API
+      voter_pubkey: vote.voter_pubkey,
+      side: vote.side,
+      poll_id: pollId, // Use the pollId parameter
+      timestamp: vote.created_at,
     };
   } catch (error: any) {
     return {
