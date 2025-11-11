@@ -1,11 +1,9 @@
 /**
  * LangChain Integration Example
- * Shows how to use Futarchy402 tools with LangChain agents
+ * Shows how to use Futarchy402 tools with LangChain
  */
 
 import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { LangChainFutarchyAdapter } from '../src/adapters/langchain/adapter.js';
 import { Futarchy402Client } from '../src/core/client.js';
 
@@ -21,44 +19,45 @@ async function main() {
   const tools = futarchyAdapter.getTools();
 
   console.log('Available tools:', tools.map((t) => t.name).join(', '));
+  console.log('\nNote: This example shows how to get LangChain-formatted tools.');
+  console.log('You can use these tools with LangChain agents, chains, or tool-calling models.\n');
 
-  // Initialize LLM
+  // Initialize LLM with tool binding
   const llm = new ChatOpenAI({
     modelName: 'gpt-4o',
     temperature: 0,
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  // Create prompt template
-  const prompt = ChatPromptTemplate.fromMessages([
-    ['system', 'You are a helpful assistant that can interact with the Futarchy402 governance platform. Use the available tools to answer questions about polls, voting, and positions.'],
-    ['human', '{input}'],
-    ['placeholder', '{agent_scratchpad}'],
+  // Bind tools to the model
+  const llmWithTools = llm.bindTools(tools);
+
+  // Example: Direct tool-calling with the model
+  console.log('Asking model to list open polls...\n');
+
+  const response = await llmWithTools.invoke([
+    {
+      role: 'user',
+      content: 'What are the currently open polls on Futarchy402? List them.',
+    },
   ]);
 
-  // Create agent
-  const agent = await createToolCallingAgent({
-    llm,
-    tools,
-    prompt,
-  });
+  console.log('Model response:', response);
 
-  // Create agent executor
-  const agentExecutor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: true,
-  });
+  // Check if model wants to use tools
+  if (response.tool_calls && response.tool_calls.length > 0) {
+    console.log('\nModel requested tool calls:');
+    for (const toolCall of response.tool_calls) {
+      console.log(`- ${toolCall.name} with args:`, toolCall.args);
 
-  // Run the agent
-  console.log('\nRunning agent...\n');
-
-  const result = await agentExecutor.invoke({
-    input: 'What are the currently open polls on Futarchy402? Give me a summary of each.',
-  });
-
-  console.log('\nFinal Result:');
-  console.log(result.output);
+      // Execute the tool
+      const tool = tools.find((t) => t.name === toolCall.name);
+      if (tool) {
+        const result = await tool.invoke(toolCall.args);
+        console.log(`  Result:`, result);
+      }
+    }
+  }
 }
 
 main().catch(console.error);

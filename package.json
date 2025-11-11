@@ -59,9 +59,11 @@
     }
   },
   "dependencies": {
+    "@langchain/openai": "^0.3.16",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.95.8",
     "bs58": "^6.0.0",
+    "langchain": "^0.3.16",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
