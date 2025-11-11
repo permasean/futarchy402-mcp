@@ -27,11 +27,11 @@ async function main() {
 
     console.log(`Found ${pagination.total} open poll(s):\n`);
     polls.forEach((poll, i) => {
-      console.log(`${i + 1}. ${poll.proposal_name}`);
+      console.log(`${i + 1}. ${poll.proposals.name}`);
       console.log(`   ID: ${poll.id}`);
-      console.log(`   Project: ${poll.project_name}`);
+      console.log(`   Project: ${poll.proposals.treasuries.projects.name}`);
       console.log(`   Yes votes: ${poll.yes_votes} | No votes: ${poll.no_votes}`);
-      console.log(`   Entry fee YES: $${poll.entry_fee_yes_usdc.toFixed(2)} | NO: $${poll.entry_fee_no_usdc.toFixed(2)}`);
+      console.log(`   Entry fee YES: $${poll.current_entry_fee_yes_usdc.toFixed(2)} | NO: $${poll.current_entry_fee_no_usdc.toFixed(2)}`);
       console.log(`   Closes: ${poll.closes_at}\n`);
     });
 
@@ -49,25 +49,25 @@ async function main() {
       const pollDetails = await client.getPoll(pollId);
 
       console.log('Proposal Details:');
-      console.log(`  Name: ${pollDetails.proposal.name}`);
-      console.log(`  Description: ${pollDetails.proposal.description}`);
-      console.log(`  Amount: $${pollDetails.proposal.amount_usdc} USDC`);
-      console.log(`  Project: ${pollDetails.proposal.project_name}`);
+      console.log(`  Name: ${pollDetails.proposals.name}`);
+      console.log(`  Description: ${pollDetails.proposals.description}`);
+      console.log(`  Amount: $${(parseFloat(pollDetails.proposals.amount_usdc_base_units) / 1_000_000).toFixed(2)} USDC`);
+      console.log(`  Project: ${pollDetails.proposals.treasuries.projects.name}`);
 
       console.log('\nLiquidity:');
-      console.log(`  Total: $${pollDetails.liquidity.total_usdc} USDC`);
-      console.log(`  YES side: $${pollDetails.liquidity.yes_usdc} USDC`);
-      console.log(`  NO side: $${pollDetails.liquidity.no_usdc} USDC`);
+      console.log(`  Total: $${(parseFloat(pollDetails.poll_pool_usdc_base_units) / 1_000_000).toFixed(2)} USDC`);
+      console.log(`  YES side: $${(parseFloat(pollDetails.yes_liquidity_usdc_base_units) / 1_000_000).toFixed(2)} USDC`);
+      console.log(`  NO side: $${(parseFloat(pollDetails.no_liquidity_usdc_base_units) / 1_000_000).toFixed(2)} USDC`);
 
       console.log('\nCurrent Prices:');
-      console.log(`  Entry fee YES: $${pollDetails.current_prices.entry_fee_yes_usdc.toFixed(6)} USDC`);
-      console.log(`  Entry fee NO: $${pollDetails.current_prices.entry_fee_no_usdc.toFixed(6)} USDC`);
-      console.log(`  Implied probability YES: ${(pollDetails.current_prices.implied_probability_yes * 100).toFixed(2)}%`);
-      console.log(`  Implied probability NO: ${(pollDetails.current_prices.implied_probability_no * 100).toFixed(2)}%`);
+      console.log(`  Entry fee YES: $${pollDetails.current_entry_fee_yes_usdc.toFixed(6)} USDC`);
+      console.log(`  Entry fee NO: $${pollDetails.current_entry_fee_no_usdc.toFixed(6)} USDC`);
+      console.log(`  Implied probability YES: ${(pollDetails.implied_probability_yes * 100).toFixed(2)}%`);
+      console.log(`  Implied probability NO: ${(pollDetails.implied_probability_no * 100).toFixed(2)}%`);
 
       console.log('\nVotes:');
-      console.log(`  Total votes: ${pollDetails.vote_counts.total}`);
-      console.log(`  YES: ${pollDetails.vote_counts.yes} | NO: ${pollDetails.vote_counts.no}`);
+      console.log(`  Total votes: ${pollDetails.total_votes}`);
+      console.log(`  YES: ${pollDetails.yes_votes} | NO: ${pollDetails.no_votes}`);
 
       if (pollDetails.votes.length > 0) {
         console.log('\nRecent votes:');
@@ -95,14 +95,10 @@ async function main() {
         console.log(`  Your share of side: ${(position.user_share_of_side * 100).toFixed(2)}%`);
 
         if (position.poll_status === 'open') {
-          console.log('\nProjections:');
-          console.log(`  If ${position.vote_side} wins:`);
-          console.log(`    Payout: $${position.if_side_wins_payout_usdc} USDC`);
-          console.log(`    Profit: $${position.if_side_wins_profit_usdc} USDC`);
-          console.log(`    ROI: ${position.if_side_wins_roi_percent.toFixed(2)}%`);
-          console.log(`  If ${position.vote_side} loses:`);
-          console.log(`    Loss: $${position.if_side_loses_profit_usdc} USDC`);
-          console.log(`    ROI: ${position.if_side_loses_roi_percent.toFixed(2)}%`);
+          console.log('\nProjected Outcome:');
+          console.log(`  Payout: $${position.potential_payout_usdc} USDC`);
+          console.log(`  Profit: $${position.potential_profit_usdc} USDC`);
+          console.log(`  ROI: ${position.potential_roi_percent.toFixed(2)}%`);
         } else if (position.poll_status === 'resolved') {
           console.log('\nActual Results:');
           console.log(`  Poll outcome: ${position.poll_outcome?.toUpperCase()}`);

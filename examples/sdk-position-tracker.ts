@@ -78,8 +78,8 @@ async function main() {
         if (position.poll_status === 'open') {
           openPositions.push({ poll, position });
           // For open positions, use projected value if side wins
-          totalValue += position.if_side_wins_payout_usdc;
-          totalProfit += position.if_side_wins_profit_usdc;
+          totalValue += position.potential_payout_usdc;
+          totalProfit += position.potential_profit_usdc;
         } else if (position.poll_status === 'resolved') {
           resolvedPositions.push({ poll, position });
           if (position.actual_results) {
@@ -100,9 +100,9 @@ async function main() {
     console.log(`Total positions: ${openPositions.length + resolvedPositions.length}`);
     console.log(`  Open: ${openPositions.length}`);
     console.log(`  Resolved: ${resolvedPositions.length}`);
-    console.log(`\nTotal invested: $${totalInvested.toFixed(2)} USDC`);
-    console.log(`Current/Final value: $${totalValue.toFixed(2)} USDC`);
-    console.log(`Total profit/loss: $${totalProfit.toFixed(2)} USDC`);
+    console.log(`\nTotal invested: $${totalInvested.toFixed(3)} USDC`);
+    console.log(`Current/Final value: $${totalValue.toFixed(3)} USDC`);
+    console.log(`Total profit/loss: $${totalProfit.toFixed(3)} USDC`);
     if (totalInvested > 0) {
       const totalROI = (totalProfit / totalInvested) * 100;
       console.log(`Overall ROI: ${totalROI.toFixed(2)}%`);
@@ -114,19 +114,16 @@ async function main() {
       console.log('📈 OPEN POSITIONS\n');
 
       openPositions.forEach(({ poll, position }, i) => {
-        console.log(`${i + 1}. ${poll.proposal_name}`);
+        console.log(`${i + 1}. ${poll.proposals.name}`);
         console.log(`   Poll ID: ${poll.id}`);
         console.log(`   Voted: ${position.vote_side.toUpperCase()}`);
         console.log(`   Amount paid: $${position.amount_paid_usdc.toFixed(4)} USDC`);
         console.log(`   Share of ${position.vote_side} side: ${(position.user_share_of_side * 100).toFixed(4)}%`);
         console.log(`   Current market: YES ${(poll.implied_probability_yes * 100).toFixed(1)}% | NO ${(poll.implied_probability_no * 100).toFixed(1)}%`);
-        console.log(`\n   If ${position.vote_side.toUpperCase()} wins:`);
-        console.log(`     Payout: $${position.if_side_wins_payout_usdc.toFixed(4)} USDC`);
-        console.log(`     Profit: $${position.if_side_wins_profit_usdc.toFixed(4)} USDC`);
-        console.log(`     ROI: ${position.if_side_wins_roi_percent.toFixed(2)}%`);
-        console.log(`\n   If ${position.vote_side.toUpperCase()} loses:`);
-        console.log(`     Loss: $${Math.abs(position.if_side_loses_profit_usdc).toFixed(4)} USDC`);
-        console.log(`     ROI: ${position.if_side_loses_roi_percent.toFixed(2)}%`);
+        console.log(`\n   Projected outcome:`);
+        console.log(`     Payout: $${position.potential_payout_usdc.toFixed(4)} USDC`);
+        console.log(`     Profit: $${position.potential_profit_usdc.toFixed(4)} USDC`);
+        console.log(`     ROI: ${position.potential_roi_percent.toFixed(2)}%`);
         console.log(`\n   Closes: ${poll.closes_at}`);
         console.log('');
       });
@@ -150,7 +147,7 @@ async function main() {
           resolvedProfit += position.actual_results.actual_profit_usdc;
         }
 
-        console.log(`${i + 1}. ${poll.proposal_name}`);
+        console.log(`${i + 1}. ${poll.proposals.name}`);
         console.log(`   Poll ID: ${poll.id}`);
         console.log(`   Voted: ${position.vote_side.toUpperCase()}`);
         console.log(`   Amount paid: $${position.amount_paid_usdc.toFixed(4)} USDC`);
